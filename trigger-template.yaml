@@ -1,0 +1,25 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: TriggerTemplate
+metadata:
+  name: hello-goodbye
+spec:
+  params:
+  - name: gitrevision
+  - name: gitrepositoryurl
+  resourcetemplates:
+  - apiVersion: tekton.dev/v1beta1
+    kind: PipelineRun
+    metadata:
+      generateName: hello-goodbye-run-
+    spec:
+      pipelineRef:
+        name: hello-goodbye
+      resources:
+      - name: source
+        resourceSpec:
+          type: git
+          params:
+          - name: revision
+            value: $(tt.params.gitrevision)
+          - name: url
+            value: $(tt.params.gitrepositoryurl)

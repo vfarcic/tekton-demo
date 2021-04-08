@@ -1,0 +1,83 @@
+# ---
+
+# apiVersion: triggers.tekton.dev/v1alpha1
+# kind: EventListener
+# metadata:
+#   name: hello-goodbye
+# spec:
+#   serviceAccountName: tekton
+#   triggers:
+#   - name: hello-goodbye
+#     interceptors:
+#     - webhook:
+#         # header:
+#         #   - name: param1
+#         #     value: value1
+#         #   - name: Foo-Trig-Header2
+#         #     value:
+#         #       - array-val1
+#         #       - array-val2
+#         objectRef:
+#           kind: Service
+#           name: gh-validate
+#           apiVersion: v1
+#           namespace: default
+#     bindings:
+#     - ref: hello-goodbye
+#     template:
+#       ref: hello-goodbye
+
+---
+
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: EventListener
+metadata:
+  name: hello-goodbye
+spec:
+  triggers:
+  - name: hello-goodbye
+    interceptors:
+    - github:
+        secretRef:
+          secretName: github-secret
+          secretKey: secretToken
+        eventTypes:
+        - pull_request
+    - cel:
+        filter: "body.action in ['opened', 'synchronize', 'reopened']"
+    bindings:
+    - ref: hello-goodbye
+      kind: ClusterTriggerBinding
+    template:
+      ref: hello-goodbye
+  resources:
+    kubernetesResource:
+      spec:
+        template:
+          spec:
+            serviceAccountName: tekton
+            containers:
+              - resources:
+                  requests:
+                    memory: "64Mi"
+                    cpu: "250m"
+                  limits:
+                    memory: "128Mi"
+                    cpu: "500m"
+
+---
+
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: ingress-resource
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /
+            backend:
+              serviceName: el-hello-goodbye
+              servicePort: 8080
