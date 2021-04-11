@@ -1,3 +1,4 @@
+# TODO: Remove
 # ---
 
 # apiVersion: triggers.tekton.dev/v1alpha1
@@ -34,6 +35,7 @@ kind: EventListener
 metadata:
   name: hello-goodbye
 spec:
+  # serviceAccountName: tekton
   triggers:
   - name: hello-goodbye
     interceptors:
@@ -67,17 +69,20 @@ spec:
 
 ---
 
-apiVersion: extensions/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ingress-resource
+  name: hello-goodbye
   annotations:
-    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    ingress.kubernetes.io/ssl-redirect: "false"
 spec:
   rules:
-    - http:
-        paths:
-          - path: /
-            backend:
-              serviceName: el-hello-goodbye
-              servicePort: 8080
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: el-hello-goodbye
+            port:
+              number: 8080

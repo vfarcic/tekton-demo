@@ -59,7 +59,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: tekton
-  namespace: default
+  namespace: tekton-builds
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
