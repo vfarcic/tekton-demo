@@ -40,6 +40,7 @@ spec:
 
 ---
 
+# TODO: Remove
 apiVersion: tekton.dev/v1beta1
 kind: ClusterTask
 metadata:
@@ -54,3 +55,16 @@ spec:
     image: ubuntu
     script: |
       ls -la $(inputs.resources.source.path)
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: silly
+spec:
+  steps:
+  - name: silly
+    image: alpine:latest
+    command: [ls]
+    args: ["-l"]

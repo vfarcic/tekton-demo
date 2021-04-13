@@ -1,0 +1,10 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: silly
+spec:
+  steps:
+  - name: silly
+    image: alpine:latest
+    command: [ls]
+    args: ["-l", "/"]
