@@ -41,33 +41,6 @@ spec:
     runAfter:
      - tests
 
-# ---
-
-# apiVersion: tekton.dev/v1beta1
-# kind: Task
-# metadata:
-#   name: build-kaniko-git
-# spec:
-#   params:
-#   - name: app_repo
-#   - name: container_image
-#   - name: container_tag
-#   volumes:
-#   - name: kaniko-secret
-#     secret:
-#       secretName: regcred
-#       items:
-#       - key: .dockerconfigjson
-#         path: config.json
-#   steps:
-#   - name: build
-#     image: gcr.io/kaniko-project/executor:debug
-#     args:
-#     - --context={{params.app_repo}}
-#     - --destination={{params.container_image}}:{{params.container_tag}}
-#     volumeMounts:
-#     - name: kaniko-secret
-#       mountPath: /kaniko/.docker/
 ---
 
 apiVersion: tekton.dev/v1beta1
