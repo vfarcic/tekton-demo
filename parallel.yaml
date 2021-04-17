@@ -1,0 +1,74 @@
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: parallel
+spec:
+  tasks:
+  - name: ls
+    taskRef:
+      name: task-ls
+  - name: sleep-a
+    taskRef:
+      name: task-sleep
+    runAfter:
+     - ls
+  - name: sleep-b
+    taskRef:
+      name: task-sleep
+    runAfter:
+     - ls
+  - name: echo
+    taskRef:
+      name: task-echo
+    params:
+    - name: message
+      value: Finishing the pipeline
+    runAfter:
+     - sleep-a
+     - sleep-b
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: task-ls
+spec:
+  steps:
+  - name: ls
+    image: alpine:latest
+    command: [ls]
+    args: ["-l", "/"]
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: task-sleep
+spec:
+  steps:
+  - name: sleep
+    image: alpine:latest
+    script: |
+      echo Starting to sleep...
+      sleep 10
+      echo Finished sleeping
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: task-echo
+spec:
+  params:
+  - name: message
+    type: string
+  steps:
+  - name: sleep
+    image: alpine:latest
+    command: [echo]
+    args: ["$(params.message)"]

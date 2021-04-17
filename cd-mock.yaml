@@ -1,0 +1,113 @@
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: toolkit
+spec:
+  tasks:
+  - name: build-container-image
+    taskRef:
+      name: build-kaniko-git
+    params:
+    - name: app_repo
+      value: git://github.com/vfarcic/tekton-demo
+    - name: container_image
+      value: vfarcic/devops-toolkit
+    - name: container_tag
+      value: "1.0.0"
+  - name: deploy-staging
+    taskRef:
+      name: task-echo
+    params:
+    - name: message
+      value: Deploying to the staging cluster...
+    runAfter:
+     - build-container-image
+  - name: tests
+    taskRef:
+      name: task-echo
+    params:
+    - name: message
+      value: Running integration tests (before, during, and after the deployment is finished)...
+    runAfter:
+     - build-container-image
+  - name: deploy-production
+    taskRef:
+      name: task-echo
+    params:
+    - name: message
+      value: Deploying to the production cluster...
+    runAfter:
+     - tests
+
+# ---
+
+# apiVersion: tekton.dev/v1beta1
+# kind: Task
+# metadata:
+#   name: build-kaniko-git
+# spec:
+#   params:
+#   - name: app_repo
+#   - name: container_image
+#   - name: container_tag
+#   volumes:
+#   - name: kaniko-secret
+#     secret:
+#       secretName: regcred
+#       items:
+#       - key: .dockerconfigjson
+#         path: config.json
+#   steps:
+#   - name: build
+#     image: gcr.io/kaniko-project/executor:debug
+#     args:
+#     - --context={{params.app_repo}}
+#     - --destination={{params.container_image}}:{{params.container_tag}}
+#     volumeMounts:
+#     - name: kaniko-secret
+#       mountPath: /kaniko/.docker/
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: build-kaniko-git
+spec:
+  params:
+  - name: app_repo
+  - name: container_image
+  - name: container_tag
+  volumes:
+  - name: kaniko-secret
+    secret:
+      secretName: regcred
+      items:
+      - key: .dockerconfigjson
+        path: config.json
+  steps:
+  - name: build
+    image: gcr.io/kaniko-project/executor:debug
+    args:
+    - --context=$(params.app_repo)
+    - --destination=$(params.container_image):$(params.container_tag)
+    volumeMounts:
+    - name: kaniko-secret
+      mountPath: /kaniko/.docker/
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: task-echo
+spec:
+  params:
+  - name: message
+    type: string
+  steps:
+  - name: sleep
+    image: alpine:latest
+    command: [echo]
+    args: ["$(params.message)"]
