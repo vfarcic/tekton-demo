@@ -54,10 +54,17 @@ spec:
      - deploy-staging
   - name: deploy-production
     taskRef:
-      name: task-echo
+      name: task-kustomize
     params:
-    - name: message
-      value: Deploying to the production cluster...
+    - name: container_image
+      value: vfarcic/tekton-demo
+    - name: container_tag
+      value: "1.0.0"
+    - name: manifests_path
+      value: tekton-demo/kustomize/overlays/production
+    workspaces:
+    - name: source
+      workspace: pipeline-ws
     runAfter:
      - tests
 
