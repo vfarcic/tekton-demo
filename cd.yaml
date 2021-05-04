@@ -6,6 +6,11 @@ metadata:
   name: toolkit
   namespace: tekton-builds
 spec:
+  params:
+  - name: project
+    default: tekton-demo
+  - name: release
+    default: "1.0.1"
   workspaces:
     - name: pipeline-ws
   tasks:
@@ -17,27 +22,27 @@ spec:
       workspace: pipeline-ws
     params:
     - name: url
-      value: git://github.com/vfarcic/tekton-demo
+      value: git://github.com/vfarcic/$(params.project)
   - name: build-container-image
     taskRef:
       name: build-kaniko-git
     params:
     - name: app_repo
-      value: git://github.com/vfarcic/tekton-demo
+      value: git://github.com/vfarcic/$(params.project)
     - name: container_image
-      value: vfarcic/tekton-demo
+      value: vfarcic/$(params.project)
     - name: container_tag
-      value: "1.0.0"
+      value: "$(params.release)"
   - name: deploy-staging
     taskRef:
       name: task-kustomize
     params:
     - name: container_image
-      value: vfarcic/tekton-demo
+      value: vfarcic/$(params.project)
     - name: container_tag
-      value: "1.0.0"
+      value: "$(params.release)"
     - name: manifests_path
-      value: tekton-demo/kustomize/overlays/staging
+      value: $(params.project)/kustomize/overlays/staging
     workspaces:
     - name: source
       workspace: pipeline-ws
@@ -57,11 +62,11 @@ spec:
       name: task-kustomize
     params:
     - name: container_image
-      value: vfarcic/tekton-demo
+      value: vfarcic/$(params.project)
     - name: container_tag
-      value: "1.0.0"
+      value: "$(params.release)"
     - name: manifests_path
-      value: tekton-demo/kustomize/overlays/production
+      value: $(params.project)/kustomize/overlays/production
     workspaces:
     - name: source
       workspace: pipeline-ws
