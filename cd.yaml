@@ -1,0 +1,116 @@
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: toolkit
+spec:
+  tasks:
+  - name: git-clone
+    taskRef:
+      name: git-clone
+    params:
+    - name: app_repo
+      value: git://github.com/vfarcic/tekton-demo
+    - name: container_image
+      value: vfarcic/devops-toolkit
+    - name: container_tag
+      value: "1.0.0"
+  - name: build-container-image
+    taskRef:
+      name: build-kaniko-git
+    params:
+    - name: app_repo
+      value: git://github.com/vfarcic/tekton-demo
+    - name: container_image
+      value: vfarcic/devops-toolkit
+    - name: container_tag
+      value: "1.0.0"
+  - name: deploy-staging
+    taskRef:
+      name: task-kustomize
+    params:
+    - name: kustomize_path
+      value: kustomize/overlays/production
+    runAfter:
+     - build-container-image
+  - name: tests
+    taskRef:
+      name: task-echo
+    params:
+    - name: message
+      value: Running integration tests (before, during, and after the deployment is finished)...
+    runAfter:
+     - build-container-image
+  - name: deploy-production
+    taskRef:
+      name: task-echo
+    params:
+    - name: message
+      value: Deploying to the production cluster...
+    runAfter:
+     - tests
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: build-kaniko-git
+spec:
+  params:
+  - name: app_repo
+  - name: container_image
+  - name: container_tag
+  volumes:
+  - name: kaniko-secret
+    secret:
+      secretName: regcred
+      items:
+      - key: .dockerconfigjson
+        path: config.json
+  steps:
+  - name: build
+    image: gcr.io/kaniko-project/executor:debug
+    args:
+    - --context=$(params.app_repo)
+    - --destination=$(params.container_image):$(params.container_tag)
+    volumeMounts:
+    - name: kaniko-secret
+      mountPath: /kaniko/.docker/
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: task-echo
+spec:
+  params:
+  - name: message
+    type: string
+  steps:
+  - name: sleep
+    image: alpine:latest
+    command: [echo]
+    args: ["$(params.message)"]
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: task-kustomize
+spec:
+  params:
+  - name: kustomize_path
+    type: string
+  steps:
+  - name: version
+    image: nekottyo/kustomize-kubeval
+    script: |
+      cd kustomize/overlays/production
+      ls -l
+      # kustomize edit set image ${{ secrets.DOCKERHUB_USERNAME }}/github-actions-demo=${{ secrets.DOCKERHUB_USERNAME }}/github-actions-demo:$GITHUB_SHA
+      # kustomize build | kubectl apply --filename -
+      # kubectl --namespace production rollout status deployment github-actions-demo
