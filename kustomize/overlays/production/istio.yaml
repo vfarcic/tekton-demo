@@ -1,25 +1,25 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
-  name: argo-combined-app
+  name: tekton-demo
   labels:
-    app: argo-combined-app
+    app: tekton-demo
 spec:
   gateways:
-  - argo-combined-app
+  - tekton-demo
   hosts:
-  - argo-combined-app.local
+  - tekton-demo.local
   - acme.com
   http:
   - name: primary
     route:
     - destination:
-        host: argo-combined-app
+        host: tekton-demo
         port:
           number: 80
       weight: 100
     - destination:
-        host: argo-combined-app-canary
+        host: tekton-demo-canary
         port:
           number: 80
       weight: 0
@@ -29,7 +29,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: argo-combined-app
+  name: tekton-demo
 spec:
   selector:
     istio: ingressgateway

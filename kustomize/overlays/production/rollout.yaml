@@ -1,22 +1,22 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
-  name: argo-combined-app
+  name: tekton-demo
   labels:
-    app: argo-combined-app
+    app: tekton-demo
 spec:
   selector:
     matchLabels:
-      app: argo-combined-app
+      app: tekton-demo
   template:
     metadata:
       labels:
-        app: argo-combined-app
+        app: tekton-demo
         istio-injection: enabled
     spec:
       containers:
-      - name: argo-combined-app
-        image: vfarcic/argo-combined-app
+      - name: tekton-demo
+        image: vfarcic/tekton-demo
         ports:
         - containerPort: 80
         livenessProbe:
@@ -43,12 +43,12 @@ spec:
             memory: 128Mi
   strategy:
     canary:
-      canaryService: argo-combined-app-canary
-      stableService: argo-combined-app
+      canaryService: tekton-demo-canary
+      stableService: tekton-demo
       trafficRouting:
         istio:
           virtualService:
-            name: argo-combined-app
+            name: tekton-demo
             routes:
             - primary
       steps:
@@ -60,18 +60,18 @@ spec:
       - pause: {duration: 30s}
       analysis:
         templates:
-        - templateName: argo-combined-app
+        - templateName: tekton-demo
         startingStep: 2
         args:
         - name: service-name
-          value: "argo-combined-app-canary.production.svc.cluster.local"
+          value: "tekton-demo-canary.production.svc.cluster.local"
 
 ---
 
 apiVersion: argoproj.io/v1alpha1
 kind: AnalysisTemplate
 metadata:
-  name: argo-combined-app
+  name: tekton-demo
 spec:
   args:
   - name: service-name
@@ -123,9 +123,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: argo-combined-app-canary
+  name: tekton-demo-canary
   labels:
-    app: argo-combined-app
+    app: tekton-demo
 spec:
   type: ClusterIP
   ports:
@@ -134,4 +134,4 @@ spec:
     protocol: TCP
     name: http
   selector:
-    app: argo-combined-app
+    app: tekton-demo

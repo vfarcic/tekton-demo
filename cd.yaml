@@ -4,6 +4,7 @@ apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
   name: toolkit
+  namespace: tekton-builds
 spec:
   workspaces:
     - name: pipeline-ws
@@ -24,16 +25,22 @@ spec:
     - name: app_repo
       value: git://github.com/vfarcic/tekton-demo
     - name: container_image
-      value: vfarcic/devops-toolkit
+      value: vfarcic/tekton-demo
     - name: container_tag
       value: "1.0.0"
   - name: deploy-staging
     taskRef:
       name: task-kustomize
+    params:
+    - name: container_image
+      value: vfarcic/tekton-demo
+    - name: container_tag
+      value: "1.0.0"
+    - name: manifests_path
+      value: tekton-demo/kustomize/overlays/staging
     workspaces:
     - name: source
       workspace: pipeline-ws
-      subPath: tekton-demo/kustomize/overlays/staging
     runAfter:
      - build-container-image
      - git-clone
@@ -44,7 +51,7 @@ spec:
     - name: message
       value: Running integration tests (before, during, and after the deployment is finished)...
     runAfter:
-     - build-container-image
+     - deploy-staging
   - name: deploy-production
     taskRef:
       name: task-echo
@@ -60,6 +67,7 @@ apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
   name: build-kaniko-git
+  namespace: tekton-builds
 spec:
   params:
   - name: app_repo
@@ -88,6 +96,7 @@ apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
   name: task-echo
+  namespace: tekton-builds
 spec:
   params:
   - name: message
@@ -104,11 +113,14 @@ apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
   name: task-kustomize
+  namespace: tekton-builds
 spec:
   params:
-  - name: image
+  - name: container_image
     type: string
-  - name: tag
+  - name: container_tag
+    type: string
+  - name: manifests_path
     type: string
   workspaces:
   - name: source
@@ -116,9 +128,9 @@ spec:
   - name: version
     image: nekottyo/kustomize-kubeval
     script: |
-      kustomize edit set image $(params.image)=$(params.image):$(params.tag)
+      cd $(workspaces.source.path)/$(params.manifests_path)
+      kustomize edit set image $(params.container_image)=$(params.container_image):$(params.container_tag)
       kustomize build | kubectl apply --filename -
-      kubectl --namespace production rollout status deployment github-actions-demo
 
 ---
 
@@ -126,6 +138,7 @@ apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
   name: task-git-clone
+  namespace: tekton-builds
 spec:
   workspaces:
   - name: source
@@ -138,3 +151,32 @@ spec:
     script: |
       cd $(workspaces.source.path)
       git clone $(params.url)
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: pipelines
+rules:
+  - apiGroups:
+      - "*"
+    resources:
+      - "*"
+    verbs:
+      - "*"
+
+---
+
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: pipelines
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: pipelines
+subjects:
+  - kind: ServiceAccount
+    name: default
+    namespace: tekton-builds

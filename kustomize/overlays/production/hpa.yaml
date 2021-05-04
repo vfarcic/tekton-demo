@@ -3,14 +3,14 @@
 apiVersion: autoscaling/v1
 kind: HorizontalPodAutoscaler
 metadata:
-  name: argo-combined-app
+  name: tekton-demo
   labels:
-    app: argo-combined-app
+    app: tekton-demo
 spec:
   minReplicas: 2
   maxReplicas: 6
   scaleTargetRef:
     apiVersion: argoproj.io/v1alpha1
     kind: Rollout
-    name: argo-combined-app
+    name: tekton-demo
   targetCPUUtilizationPercentage: 80

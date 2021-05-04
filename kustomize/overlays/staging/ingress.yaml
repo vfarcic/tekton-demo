@@ -1,7 +1,7 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: argo-combined-app
+  name: tekton-demo
   annotations:
     ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
@@ -15,7 +15,7 @@ spec:
         pathType: ImplementationSpecific
         backend:
           service:
-           name: argo-combined-app
+           name: tekton-demo
            port:
              number: 80
-    host: staging.argo-combined-app.52.249.240.246.xip.io
+    host: staging.tekton-demo.52.249.240.246.xip.io

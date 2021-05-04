@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: argo-combined-app
+  name: tekton-demo
   labels:
-    app: argo-combined-app
+    app: tekton-demo
 spec:
   selector:
     matchLabels:
-      app: argo-combined-app
+      app: tekton-demo
   template:
     metadata:
       labels:
-        app: argo-combined-app
+        app: tekton-demo
     spec:
       containers:
-      - name: argo-combined-app
+      - name: tekton-demo
         image: vfarcic/devops-toolkit:latest
         ports:
         - containerPort: 80
