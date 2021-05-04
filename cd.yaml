@@ -105,20 +105,20 @@ kind: Task
 metadata:
   name: task-kustomize
 spec:
+  params:
+  - name: image
+    type: string
+  - name: tag
+    type: string
   workspaces:
   - name: source
   steps:
   - name: version
     image: nekottyo/kustomize-kubeval
-    # image: alpine
     script: |
-      cd $(workspaces.source.path)
-      ls -l
-# cd $(workspaces.source.path)/kustomize/overlays/production
-# ls -l
-# kustomize edit set image ${{ secrets.DOCKERHUB_USERNAME }}/github-actions-demo=${{ secrets.DOCKERHUB_USERNAME }}/github-actions-demo:$GITHUB_SHA
-# kustomize build | kubectl apply --filename -
-# kubectl --namespace production rollout status deployment github-actions-demo
+      kustomize edit set image $(params.image)=$(params.image):$(params.tag)
+      kustomize build | kubectl apply --filename -
+      kubectl --namespace production rollout status deployment github-actions-demo
 
 ---
 
