@@ -13,7 +13,7 @@ spec:
     - name: app_repo
       value: git://github.com/vfarcic/tekton-demo
     - name: container_image
-      value: vfarcic/devops-toolkit
+      value: vfarcic/tekton-demo
     - name: container_tag
       value: "1.0.0"
   - name: deploy-staging

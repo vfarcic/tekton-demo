@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
       - name: tekton-demo
-        image: vfarcic/devops-toolkit:latest
+        image: vfarcic/tekton-demo:latest
         ports:
         - containerPort: 80
         livenessProbe:
