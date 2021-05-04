@@ -5,17 +5,18 @@ kind: Pipeline
 metadata:
   name: toolkit
 spec:
+  workspaces:
+    - name: pipeline-ws
   tasks:
   - name: git-clone
     taskRef:
-      name: git-clone
+      name: task-git-clone
+    workspaces:
+    - name: source
+      workspace: pipeline-ws
     params:
-    - name: app_repo
+    - name: url
       value: git://github.com/vfarcic/tekton-demo
-    - name: container_image
-      value: vfarcic/devops-toolkit
-    - name: container_tag
-      value: "1.0.0"
   - name: build-container-image
     taskRef:
       name: build-kaniko-git
@@ -29,11 +30,13 @@ spec:
   - name: deploy-staging
     taskRef:
       name: task-kustomize
-    params:
-    - name: kustomize_path
-      value: kustomize/overlays/production
+    workspaces:
+    - name: source
+      workspace: pipeline-ws
+      subPath: tekton-demo/kustomize/overlays/staging
     runAfter:
      - build-container-image
+     - git-clone
   - name: tests
     taskRef:
       name: task-echo
@@ -102,15 +105,36 @@ kind: Task
 metadata:
   name: task-kustomize
 spec:
-  params:
-  - name: kustomize_path
-    type: string
+  workspaces:
+  - name: source
   steps:
   - name: version
     image: nekottyo/kustomize-kubeval
+    # image: alpine
     script: |
-      cd kustomize/overlays/production
+      cd $(workspaces.source.path)
       ls -l
-      # kustomize edit set image ${{ secrets.DOCKERHUB_USERNAME }}/github-actions-demo=${{ secrets.DOCKERHUB_USERNAME }}/github-actions-demo:$GITHUB_SHA
-      # kustomize build | kubectl apply --filename -
-      # kubectl --namespace production rollout status deployment github-actions-demo
+# cd $(workspaces.source.path)/kustomize/overlays/production
+# ls -l
+# kustomize edit set image ${{ secrets.DOCKERHUB_USERNAME }}/github-actions-demo=${{ secrets.DOCKERHUB_USERNAME }}/github-actions-demo:$GITHUB_SHA
+# kustomize build | kubectl apply --filename -
+# kubectl --namespace production rollout status deployment github-actions-demo
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: task-git-clone
+spec:
+  workspaces:
+  - name: source
+  params:
+  - name: url
+    type: string
+  steps:
+  - name: clone
+    image: bitnami/git
+    script: |
+      cd $(workspaces.source.path)
+      git clone $(params.url)
