@@ -18,4 +18,4 @@ spec:
            name: tekton-demo
            port:
              number: 80
-    host: devops-toolkit.18.133.43.20.nip.io
+    host: devops-toolkit.acme.com
