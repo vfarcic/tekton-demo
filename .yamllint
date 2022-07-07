@@ -1,0 +1,20 @@
+ignore: |
+  .kube/
+  prod/
+  non-prod/
+
+extends: default
+
+rules:
+  line-length: disable
+  document-start: disable
+  empty-lines:
+    level: warning
+  quoted-strings:
+    quote-type: any
+    required: false
+  trailing-spaces:
+    level: warning
+  indentation:
+    level: warning
+

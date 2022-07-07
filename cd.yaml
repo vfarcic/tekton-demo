@@ -22,33 +22,47 @@ spec:
       workspace: pipeline-ws
     params:
     - name: url
-      value: git://github.com/vfarcic/$(params.project)
-  - name: build-container-image
+      value: https://github.com/clcchai/tekton-demo.git
+  #- name: build-container-image
+  #  taskRef:
+  #    name: build-kaniko-git
+  #  params:
+  #  - name: app_repo
+  #    value: git://github.com/clcchai/$(params.project).git
+  #  - name: container_image
+  #    value: colinlcchai/$(params.project)
+  #  - name: container_tag
+  #    value: "$(params.release)"
+  - name: kube-linter
     taskRef:
-      name: build-kaniko-git
+      name: kube-linter
     params:
-    - name: app_repo
-      value: git://github.com/vfarcic/$(params.project)
-    - name: container_image
-      value: vfarcic/$(params.project)
-    - name: container_tag
-      value: "$(params.release)"
-  - name: deploy-staging
-    taskRef:
-      name: task-kustomize
-    params:
-    - name: container_image
-      value: vfarcic/$(params.project)
-    - name: container_tag
-      value: "$(params.release)"
-    - name: manifests_path
-      value: $(params.project)/kustomize/overlays/staging
+    - name: subdirectory
+      value: .
     workspaces:
     - name: source
       workspace: pipeline-ws
     runAfter:
-     - build-container-image
-     - git-clone
+      - git-clone
+  - name: kube-val
+    taskRef:
+      name: kubeval-example
+    workspaces:
+    - name: source
+      workspace: pipeline-ws
+    runAfter:
+      - yaml-lint-run
+  - name: yaml-lint-run #lint yaml
+    taskRef:
+      name: yaml-lint
+    runAfter:
+        - kube-linter
+    workspaces:
+      - name: source
+        workspace: pipeline-ws
+    params:
+      - name: args
+        value: ["."]
   - name: tests
     taskRef:
       name: task-echo
@@ -56,13 +70,13 @@ spec:
     - name: message
       value: Running integration tests (before, during, and after the deployment is finished)...
     runAfter:
-     - deploy-staging
+     - kube-val
   - name: deploy-production
     taskRef:
       name: task-kustomize
     params:
     - name: container_image
-      value: vfarcic/$(params.project)
+      value: colinlcchai/$(params.project)
     - name: container_tag
       value: "$(params.release)"
     - name: manifests_path
@@ -72,7 +86,15 @@ spec:
       workspace: pipeline-ws
     runAfter:
      - tests
-
+  finally:   
+  - name: slack-it
+    taskRef:
+      name: send-to-webhook-slack
+    params:
+    - name: webhook-secret
+      value: webhook-secret
+    - name: message
+      value: "Hello from Tekton!"
 ---
 
 apiVersion: tekton.dev/v1beta1
@@ -124,6 +146,40 @@ spec:
 apiVersion: tekton.dev/v1beta1
 kind: Task
 metadata:
+  name: yaml-lint
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/categories: Code Quality
+    tekton.dev/tags: linter
+    tekton.dev/displayName: "YAML linter"
+    tekton.dev/platforms: "linux/amd64"
+spec:
+  description: >-
+    This task can be used to perform lint check on YAML files
+  workspaces:
+    - name: source
+      description: A workspace that contains the fetched git repository.
+  params:
+    - name: args
+      type: array
+      description: extra args needs to append
+      default: ["--help"]
+  steps:
+    - name: lint-yaml-files
+      image: docker.io/cytopia/yamllint:1.23@sha256:e9deea51bbdc35950cacf6594dab94100d9bbf5c987540b8874167d58e6bdce2 #tag: 1.23
+      onError: continue
+      workingDir: $(workspaces.source.path)
+      command:
+        - yamllint
+      args:
+        - $(params.args)
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
   name: task-kustomize
   namespace: tekton-builds
 spec:
@@ -159,13 +215,151 @@ spec:
     type: string
   steps:
   - name: clone
-    image: bitnami/git
+  #  image: bitnami/git
+    image: alpine/git
     script: |
       cd $(workspaces.source.path)
       git clone $(params.url)
 
 ---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: kube-linter
+spec:
+  description: >-
+    Kube Linter 
+  workspaces:
+  - name: source
+  params:
+    - name: subdirectory
+      type: string
+      default: ""
 
+  steps:
+  - name: kube-linter-checks
+    image: stackrox/kube-linter:latest-alpine
+    workingDir: /workspace/source/$(params.subdirectory)
+    command:
+    - /bin/sh
+    args:
+    - -c
+    - |
+      /kube-linter lint .
+      my_exit_code=$?
+      echo "RESULT 1:--- $my_exit_code"
+      if [ ${my_exit_code} == 1 ]; then
+          echo "We know that kube-linter do not support OpenShift Yet. Bypassing."
+          exit 0;
+      else
+          echo "Manifest doesn't have anyy issues"
+      fi;
+    volumeMounts:
+    securityContext:
+      privileged: true
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: send-to-webhook-slack
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/categories: Messaging
+    tekton.dev/tags: messaging
+    tekton.dev/displayName: "Send message to Slack Channel"
+    tekton.dev/platforms: "linux/amd64,linux/s390x,linux/ppc64le"
+spec:
+  description: >-
+    These tasks post a simple message to a slack channel.
+
+    This task uses Incoming Webhooks of slack to send the message.
+
+  params:
+  - name: webhook-secret
+    type: string
+    description: secret name of the slack app webhook URL (key is url)
+  - name: message
+    type: string
+    description: plain text message
+  - name: bot-name
+    type: string
+    description: plain text message
+    default: 'Tekton Bot'
+  - name: icon-emoji
+    type: string
+    description: plain text message
+    default: ':robot_face:'
+  steps:
+  - name: post
+    image: docker.io/curlimages/curl:7.70.0@sha256:031df77a11e5edded840bc761a845eab6e3c2edee22669fb8ad6d59484b6a1c4 #tag: 7.70.0
+    script: |
+      #!/usr/bin/env sh
+      MESSAGE=$(echo "${MESSAGE}" | sed -e 's/\"/\\\\"/g')
+      BOTNAME=$(echo "${BOTNAME}" | sed -e 's/\"/\\\\"/g')
+      JSON="{\"text\": \"${MESSAGE}\", \"username\": \"${BOTNAME}\", \"icon_emoji\": \"${EMOJI}\"}"
+      curl -X POST -H 'Content-Type: application/json' --data "${JSON}" "${URL}"
+    env:
+    - name: URL
+      valueFrom:
+        secretKeyRef:
+          name: $(params.webhook-secret)
+          key: url
+    - name: MESSAGE
+      value: $(params.message)
+    - name: BOTNAME
+      value: $(params.bot-name)
+    - name: EMOJI
+      value: $(params.icon-emoji)
+
+---
+
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: kubeval-example
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/categories: Code Quality, Kubernetes
+    tekton.dev/tags: test
+    tekton.dev/platforms: "linux/amd64"
+spec:
+  description: >-
+    This task makes it possible to use Kubeval within your Tekton pipelines.
+
+    Kubeval is a tool used for validating Kubernetes configuration files. By
+    default the task will recursively scan the provided repository for YAML
+    files and validate them against the Kubernetes schemas.
+
+  workspaces:
+  - name: source
+  params:
+  - name: files
+    default: "."
+  - name: output
+    default: "stdout"
+  - name: args
+    type: array
+    default: []
+
+  steps:
+  - name: kubeval
+    workingDir: $(workspaces.source.path)
+    image: docker.io/garethr/kubeval:0.15.0@sha256:6962d8ecbb7839637667f66e6703e6ebaae0c29dfe93a31d9968fba4324c7b8d #tag: 0.15.0
+    onError: continue
+    command:
+      - kubeval
+      - -d
+      - $(params.files)
+      - -o
+      - $(params.output)
+      - $(params.args)
+
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
