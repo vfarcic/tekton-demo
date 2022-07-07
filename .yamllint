@@ -1,11 +1,13 @@
-ignore: |
-  .kube/
-  prod/
-  non-prod/
-
 extends: default
-
 rules:
+  braces:
+    max-spaces-inside: 0
+    min-spaces-inside: 0
+  brackets:
+    max-spaces-inside: 0
+    min-spaces-inside: 0
+  comments:
+    min-spaces-from-content: 1
   line-length: disable
   document-start: disable
   empty-lines:
